@@ -1,0 +1,7 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <path d="M10 50 C10 20, 90 20, 90 50 C90 80, 60 80, 50 100 C40 80, 10 80, 10 50 Z" fill="red"/>
+  <polygon points="25,60 35,50 45,60" fill="white"/>
+  <polygon points="55,60 65,50 75,60" fill="white"/>
+  <path d="M20 20 L30 10" stroke="red" stroke-width="5" />
+  <path d="M80 20 L70 10" stroke="red" stroke-width="5" />
+</svg>
