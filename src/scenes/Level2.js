@@ -1,8 +1,8 @@
 import { LEVEL_MAP, TILE_SIZE, TIME_LIMIT_MS, TOTAL_KEYS } from "../config.js";
 
-export default class GameScene extends Phaser.Scene {
+export default class Level2 extends Phaser.Scene {
   constructor() {
-    super({ key: "GameScene" });
+    super({ key: "Level2" });
     this.gameIsRunning = false;
     this.keysCollected = 0;
     this.doorLocked = true;
@@ -10,23 +10,25 @@ export default class GameScene extends Phaser.Scene {
     this.monsterTargetTile = null;
     this.lockedDoorMessage = null;
     this.wallSprites = [];
-    this.currentHole = null;
-    this.currentHoleSprite = null;
-    this.nextHoleCarve = 0;
-    this.holeInterval = 3000;
     this.worldWidth = 0;
     this.worldHeight = 0;
     this.externalTimerEl = null;
     this.externalTimerStart = 0;
     this.externalTimerActive = false;
     this.externalCoinsEl = null;
+    this.ballsGroup = null;
+    this.ballTiles = null;
+    this.ballsQueue = null;
+    this.ballInterval = 1200;
+    this.nextBallTime = 0;
+    this.ballMax = 2;
   }
 
   preload() {}
 
   create() {
     this.coins = this.registry.get("coins");
-    this.level = this.registry.get("level");
+    this.level = 2;
 
     this.keysCollected = 0;
     this.doorLocked = true;
@@ -68,17 +70,20 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    this.obstacles = this.physics.add.staticGroup();
+    this.ballsGroup = this.physics.add.staticGroup();
+    this.ballTiles = new Set();
+    this.ballsQueue = [];
 
     this.player = this.physics.add.sprite(400, 300, "player").setDisplaySize(40, 40).setCollideWorldBounds(true);
-    this.monster = this.physics.add.sprite(80, 80, "monster").setDisplaySize(45, 45).setCollideWorldBounds(true);
-    this.monsterSpeed = 125;
+    this.monster = this.physics.add.sprite(80, 80, "monster2").setDisplaySize(48, 48).setCollideWorldBounds(true);
+    this.monsterSpeed = 135;
 
     this.door = this.physics.add.staticSprite(750, 80, "door").setDisplaySize(50, 70).setTint(0xff0000).refreshBody();
 
     this.physics.add.collider(this.player, this.borderWalls);
     this.physics.add.collider(this.monster, this.borderWalls);
     this.physics.add.collider(this.monster, this.innerWalls);
+    this.physics.add.collider(this.monster, this.ballsGroup);
 
     this.physics.add.collider(this.player, this.door, this.tryExit, null, this);
 
@@ -89,8 +94,7 @@ export default class GameScene extends Phaser.Scene {
       key.setData("isBeingCollected", false);
     });
 
-    this.physics.add.collider(this.monster, this.obstacles);
-    this.physics.add.overlap(this.player, this.obstacles, this.handleHoleDeath, null, this);
+    this.physics.add.overlap(this.player, this.ballsGroup, this.handleBallDeath, null, this);
 
     this.physics.add.collider(this.player, this.monster, this.handleGameOver, null, this);
     this.physics.add.overlap(this.player, this.keys, this.collectKey, null, this);
@@ -142,6 +146,11 @@ export default class GameScene extends Phaser.Scene {
 
     this.handlePlayerMovement();
     this.handleMonsterAI(time);
+
+    if (time > this.nextBallTime) {
+      this.nextBallTime = time + this.ballInterval;
+      this.spawnBallNearMonster();
+    }
   }
 
   centerAndZoomCamera(viewW, viewH) {
@@ -185,11 +194,6 @@ export default class GameScene extends Phaser.Scene {
     } else {
       this.monster.setVelocity(0);
     }
-
-    if (time > this.nextHoleCarve) {
-      this.nextHoleCarve = time + this.holeInterval;
-      this.tryCarveHole();
-    }
   }
 
   findMonsterPath() {
@@ -206,63 +210,39 @@ export default class GameScene extends Phaser.Scene {
     this.easystar.calculate();
   }
 
-  tryCarveHole() {
-    const target = this.decideHoleTile();
-    if (!target) return;
-    const { x, y } = target;
-    if (this.isFloorTile(x, y)) this.openHoleAt(x, y);
-  }
-
-  decideHoleTile() {
+  spawnBallNearMonster() {
     const m = this.getTileFromWorld(this.monster.x, this.monster.y);
-    const p = this.getTileFromWorld(this.player.x, this.player.y);
-    const dx = Math.sign(p.x - m.x);
-    const dy = Math.sign(p.y - m.y);
-    const preferX = Math.abs(p.x - m.x) >= Math.abs(p.y - m.y);
-    const candidates = [];
-    if (preferX && dx !== 0) candidates.push({ x: m.x + dx, y: m.y });
-    if (dy !== 0) candidates.push({ x: m.x, y: m.y + dy });
-    if (!preferX && dx !== 0) candidates.push({ x: m.x + dx, y: m.y });
-    candidates.push({ x: m.x + 1, y: m.y }, { x: m.x - 1, y: m.y }, { x: m.x, y: m.y + 1 }, { x: m.x, y: m.y - 1 });
-    for (const c of candidates) {
-      if (this.inBounds(c.x, c.y) && this.isFloorTile(c.x, c.y)) return c;
+    const offsets = [];
+    for (let r = 1; r <= 2; r++) {
+      offsets.push({ x: r, y: 0 }, { x: -r, y: 0 }, { x: 0, y: r }, { x: 0, y: -r }, { x: r, y: r }, { x: -r, y: r }, { x: r, y: -r }, { x: -r, y: -r });
     }
-    return null;
-  }
+    Phaser.Utils.Array.Shuffle(offsets);
+    for (const o of offsets) {
+      const x = m.x + o.x;
+      const y = m.y + o.y;
+      if (!this.inBounds(x, y)) continue;
+      if (!this.isFloorTile(x, y)) continue;
+      const key = `${x},${y}`;
+      if (this.ballTiles.has(key)) continue;
 
-  openHoleAt(x, y) {
-    if (this.currentHole && (this.currentHole.x !== x || this.currentHole.y !== y)) this.closeCurrentHole();
-    LEVEL_MAP[y][x] = 1;
-    if (this.currentHoleSprite) {
-      this.currentHoleSprite.destroy();
-      this.currentHoleSprite = null;
-    }
-    this.currentHoleSprite = this.obstacles
-      .create(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "hole")
-      .setSize(TILE_SIZE, TILE_SIZE)
-      .refreshBody();
-    this.currentHole = { x, y };
-    this.easystar.setGrid(LEVEL_MAP);
-  }
+      if (this.ballsQueue.length >= this.ballMax) {
+        const old = this.ballsQueue.shift();
+        if (old && old.sprite) old.sprite.destroy();
+        if (old) this.ballTiles.delete(old.key);
+      }
 
-  closeCurrentHole() {
-    if (!this.currentHole) return;
-    const { x, y } = this.currentHole;
-    LEVEL_MAP[y][x] = 0;
-    if (this.currentHoleSprite) {
-      this.currentHoleSprite.destroy();
-      this.currentHoleSprite = null;
+      const sprite = this.ballsGroup
+        .create(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "ball")
+        .setSize(TILE_SIZE, TILE_SIZE)
+        .refreshBody();
+      this.ballTiles.add(key);
+      this.ballsQueue.push({ x, y, sprite, key });
+      break;
     }
-    this.easystar.setGrid(LEVEL_MAP);
-    this.currentHole = null;
   }
 
   inBounds(x, y) {
     return y >= 0 && y < LEVEL_MAP.length && x >= 0 && x < LEVEL_MAP[y].length;
-  }
-
-  isWallTile(x, y) {
-    return this.inBounds(x, y) && LEVEL_MAP[y][x] === 1;
   }
 
   isFloorTile(x, y) {
@@ -315,19 +295,18 @@ export default class GameScene extends Phaser.Scene {
     const newCoins = this.coins + 70;
     this.coins = newCoins;
     this.registry.set("coins", newCoins);
-
     this.coinsText.setText(`מטבעות: ${newCoins}`);
-    if (this.externalCoinsEl) this.externalCoinsEl.textContent = String(newCoins);
+    const el = document.getElementById("global-coins");
+    if (el) el.textContent = String(newCoins);
 
-    const message = "שלב הושלם!";
+    const message = "שלב 2 הושלם!";
     this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7);
     this.add.text(this.scale.width / 2, this.scale.height / 2, message, { fontSize: "32px", fill: "#00ff00" }).setOrigin(0.5);
 
-    this.closeCurrentHole();
     this.externalTimerActive = false;
 
-    this.time.delayedCall(1500, () => {
-      this.scene.restart();
+    this.time.delayedCall(1000, () => {
+      this.scene.start("Level1");
     });
   }
 
@@ -335,8 +314,8 @@ export default class GameScene extends Phaser.Scene {
     this.endGame("win", "הזמן נגמר – הצלחת! 🎉");
   }
 
-  handleHoleDeath() {
-    this.endGame("lose", "נפלת לחור! 😢");
+  handleBallDeath() {
+    this.endGame("lose", "נגעת בכדור! 😢");
   }
 
   handleGameOver() {
@@ -353,14 +332,15 @@ export default class GameScene extends Phaser.Scene {
       this.coins = newCoins;
       this.registry.set("coins", newCoins);
       this.coinsText.setText(`מטבעות: ${newCoins}`);
-      if (this.externalCoinsEl) this.externalCoinsEl.textContent = String(newCoins);
+      const el = document.getElementById("global-coins");
+      if (el) el.textContent = String(newCoins);
     }
 
     const tint = state === "win" ? 0x00ff00 : 0xff0000;
     this.player.setTint(tint);
     this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7);
     this.add.text(this.scale.width / 2, this.scale.height / 2, message, { fontSize: "32px", fill: "#fff" }).setOrigin(0.5);
-    this.closeCurrentHole();
+
     this.time.delayedCall(1200, () => {
       this.add.text(this.scale.width / 2, this.scale.height / 2 + 60, "לחץ R כדי לאתחל את המשחק", { fontSize: "24px", fill: "#ffff00" }).setOrigin(0.5);
     });

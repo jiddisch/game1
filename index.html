@@ -16,9 +16,48 @@
         overflow: hidden;
         background: #111;
       }
+      #game-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100vw;
+        height: 100vh;
+      }
+      #hud {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+        color: #fff;
+        font: 700 24px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial,
+          sans-serif;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+        user-select: none;
+        pointer-events: none;
+      }
+      #global-timer {
+        color: #00e676;
+        margin-left: 4px;
+      }
+      #global-coins {
+        color: #ffc900;
+        margin-left: 4px;
+      }
+      #hud .row {
+        margin-bottom: 6px;
+      }
     </style>
   </head>
   <body>
+    <div id="hud">
+      <div class="row">
+        <span>זמן:</span><span id="global-timer">00:00:00</span>
+      </div>
+      <div class="row">
+        <span>מטבעות:</span><span id="global-coins">50</span>
+      </div>
+    </div>
+    <div id="game-container"></div>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>

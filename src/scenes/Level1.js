@@ -1,8 +1,8 @@
 import { LEVEL_MAP, TILE_SIZE, TIME_LIMIT_MS, TOTAL_KEYS } from "../config.js";
 
-export default class GameScene extends Phaser.Scene {
+export default class Level1 extends Phaser.Scene {
   constructor() {
-    super({ key: "GameScene" });
+    super({ key: "Level1" });
     this.gameIsRunning = false;
     this.keysCollected = 0;
     this.doorLocked = true;
@@ -26,7 +26,7 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
     this.coins = this.registry.get("coins");
-    this.level = this.registry.get("level");
+    this.level = 1;
 
     this.keysCollected = 0;
     this.doorLocked = true;
@@ -326,8 +326,8 @@ export default class GameScene extends Phaser.Scene {
     this.closeCurrentHole();
     this.externalTimerActive = false;
 
-    this.time.delayedCall(1500, () => {
-      this.scene.restart();
+    this.time.delayedCall(1000, () => {
+      this.scene.start("Level2");
     });
   }
 
@@ -353,7 +353,8 @@ export default class GameScene extends Phaser.Scene {
       this.coins = newCoins;
       this.registry.set("coins", newCoins);
       this.coinsText.setText(`מטבעות: ${newCoins}`);
-      if (this.externalCoinsEl) this.externalCoinsEl.textContent = String(newCoins);
+      const el = document.getElementById("global-coins");
+      if (el) el.textContent = String(newCoins);
     }
 
     const tint = state === "win" ? 0x00ff00 : 0xff0000;
