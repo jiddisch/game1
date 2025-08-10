@@ -61,6 +61,9 @@ export default class Level4 extends Phaser.Scene {
     this.playerLives = this.registry.get("lives") ?? 3;
     this.level = 4;
 
+    const levelEl = document.getElementById("global-level");
+    if (levelEl) levelEl.textContent = String(this.level);
+
     this.map = LEVEL4_MAP.map(r => r.slice());
     this.worldWidth = this.map[0].length * TILE_SIZE;
     this.worldHeight = this.map.length * TILE_SIZE;

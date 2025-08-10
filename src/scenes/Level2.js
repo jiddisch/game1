@@ -37,6 +37,9 @@ export default class Level2 extends Phaser.Scene {
     this.playerLives = this.registry.get("lives") ?? 3;
     this.level = 2;
 
+    const levelEl = document.getElementById("global-level");
+    if (levelEl) levelEl.textContent = String(this.level);
+
     this.keysCollected = 0;
     this.doorLocked = true;
 

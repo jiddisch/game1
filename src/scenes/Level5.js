@@ -66,6 +66,10 @@ export default class Level5 extends Phaser.Scene {
   create() {
     this.coins = this.registry.get("coins");
     this.level = 5;
+
+    const levelEl = document.getElementById("global-level");
+    if (levelEl) levelEl.textContent = String(this.level);
+    
     this.playerLives = this.registry.get("lives") ?? 3;
 
     this.map = LEVEL5_MAP.map(r => r.slice());

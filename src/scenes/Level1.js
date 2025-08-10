@@ -1,4 +1,3 @@
-// src/scenes/Level1.js
 import { LEVEL_MAP, TILE_SIZE, TIME_LIMIT_MS, TOTAL_KEYS } from "../config.js";
 
 export default class Level1 extends Phaser.Scene {
@@ -34,6 +33,9 @@ export default class Level1 extends Phaser.Scene {
     this.coins = this.registry.get("coins");
     this.playerLives = this.registry.get("lives") ?? 3;
     this.level = 1;
+
+    const levelEl = document.getElementById("global-level");
+    if (levelEl) levelEl.textContent = String(this.level);
 
     this.keysCollected = 0;
     this.doorLocked = true;
