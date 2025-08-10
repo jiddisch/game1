@@ -340,7 +340,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   handleGameOver() {
-    this.endGame("lose", "הייתה תקרית – המשטרה תפסה אותך! 😢");
+    this.endGame("lose", "הייתה תקרית – המפלצת תפסה אותך! 😢");
   }
 
   endGame(state, message) {

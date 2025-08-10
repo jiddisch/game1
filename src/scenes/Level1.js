@@ -1,3 +1,4 @@
+// src/scenes/Level1.js
 import { LEVEL_MAP, TILE_SIZE, TIME_LIMIT_MS, TOTAL_KEYS } from "../config.js";
 
 export default class Level1 extends Phaser.Scene {
@@ -20,12 +21,18 @@ export default class Level1 extends Phaser.Scene {
     this.externalTimerStart = 0;
     this.externalTimerActive = false;
     this.externalCoinsEl = null;
+    this.coinsGroup = null;
+    this.coinTiles = null;
+    this.coinSpawnInterval = 5000;
+    this.nextCoinTime = 0;
+    this.coinMax = 3;
+    this.playerLives = 3;
+    this.invulnUntil = 0;
   }
-
-  preload() {}
 
   create() {
     this.coins = this.registry.get("coins");
+    this.playerLives = this.registry.get("lives") ?? 3;
     this.level = 1;
 
     this.keysCollected = 0;
@@ -57,10 +64,7 @@ export default class Level1 extends Phaser.Scene {
         if (LEVEL_MAP[y][x] === 1) {
           const isBorder = y === 0 || y === LEVEL_MAP.length - 1 || x === 0 || x === LEVEL_MAP[y].length - 1;
           const group = isBorder ? this.borderWalls : this.innerWalls;
-          const s = group
-            .create(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "wall")
-            .setSize(TILE_SIZE, TILE_SIZE)
-            .refreshBody();
+          const s = group.create(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "wall").setSize(TILE_SIZE, TILE_SIZE).refreshBody();
           this.wallSprites[y][x] = s;
         } else {
           this.wallSprites[y][x] = null;
@@ -69,17 +73,14 @@ export default class Level1 extends Phaser.Scene {
     }
 
     this.obstacles = this.physics.add.staticGroup();
-
     this.player = this.physics.add.sprite(400, 300, "player").setDisplaySize(40, 40).setCollideWorldBounds(true);
     this.monster = this.physics.add.sprite(80, 80, "monster").setDisplaySize(45, 45).setCollideWorldBounds(true);
     this.monsterSpeed = 125;
-
     this.door = this.physics.add.staticSprite(750, 80, "door").setDisplaySize(50, 70).setTint(0xff0000).refreshBody();
 
     this.physics.add.collider(this.player, this.borderWalls);
     this.physics.add.collider(this.monster, this.borderWalls);
     this.physics.add.collider(this.monster, this.innerWalls);
-
     this.physics.add.collider(this.player, this.door, this.tryExit, null, this);
 
     this.keys = this.physics.add.staticGroup();
@@ -91,9 +92,12 @@ export default class Level1 extends Phaser.Scene {
 
     this.physics.add.collider(this.monster, this.obstacles);
     this.physics.add.overlap(this.player, this.obstacles, this.handleHoleDeath, null, this);
-
     this.physics.add.collider(this.player, this.monster, this.handleGameOver, null, this);
     this.physics.add.overlap(this.player, this.keys, this.collectKey, null, this);
+
+    this.coinsGroup = this.physics.add.staticGroup();
+    this.coinTiles = new Set();
+    this.physics.add.overlap(this.player, this.coinsGroup, this.collectCoin, null, this);
 
     this.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
     this.cameras.main.setBounds(0, 0, this.worldWidth, this.worldHeight);
@@ -112,25 +116,25 @@ export default class Level1 extends Phaser.Scene {
 
     this.externalTimerEl = document.getElementById("global-timer");
     this.externalCoinsEl = document.getElementById("global-coins");
+    this.externalHeartsEl = document.getElementById("global-hearts");
+    this.renderHeartsDOM(this.playerLives);
     if (this.externalTimerEl) this.externalTimerEl.textContent = "00:00:00";
     if (this.externalCoinsEl) this.externalCoinsEl.textContent = String(this.coins);
     this.externalTimerStart = this.time.now;
     this.externalTimerActive = true;
+    this.nextCoinTime = this.time.now + this.coinSpawnInterval;
   }
 
   update(time) {
     if (!this.gameIsRunning) {
       if (Phaser.Input.Keyboard.JustDown(this.restartKey)) {
-        this.scene.restart();
+        this.registry.set("lives", 3);
+        this.scene.start("Level1");
       }
       return;
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.pauseKey)) {
-      this.scene.pause();
-      return;
-    }
-
+    if (Phaser.Input.Keyboard.JustDown(this.pauseKey)) this.scene.pause();
     const remaining = this.gameEndTime - time;
     if (remaining > 0) this.timerText.setText(this.formatTime(remaining));
     else this.winByTime();
@@ -142,6 +146,62 @@ export default class Level1 extends Phaser.Scene {
 
     this.handlePlayerMovement();
     this.handleMonsterAI(time);
+
+    if (time > this.nextCoinTime) {
+      this.nextCoinTime = time + this.coinSpawnInterval;
+      if (this.coinsGroup.countActive(true) < this.coinMax) this.spawnCoin();
+    }
+  }
+
+  renderHeartsDOM(lives) {
+    if (!this.externalHeartsEl) return;
+    let html = "";
+    for (let i = 0; i < 3; i++) {
+      const src = i < lives ? "src/assets/heart.svg" : "src/assets/heart-empty.svg";
+      html += `<img src="${src}" alt="heart">`;
+    }
+    this.externalHeartsEl.innerHTML = html;
+  }
+
+  handlePlayerHit(message) {
+    if (this.time.now < this.invulnUntil) return;
+
+    this.playerLives--;
+    this.registry.set("lives", this.playerLives);
+    this.renderHeartsDOM(this.playerLives);
+
+    if (this.playerLives > 0) {
+      this.invulnUntil = this.time.now + 1500;
+      this.tweens.add({ targets: this.player, alpha: 0.3, yoyo: true, repeat: 5, duration: 100 });
+    } else {
+      this.endGame("lose", message);
+    }
+  }
+
+  handleHoleDeath() { this.handlePlayerHit("נפלת לחור! 😢"); }
+  handleGameOver() { this.handlePlayerHit("המפלצת תפסה אותך! 😢"); }
+
+  endGame(state, message) {
+    if (!this.gameIsRunning) return;
+    this.gameIsRunning = false;
+    this.physics.pause();
+
+    if (state === 'lose') {
+      const newCoins = Math.max(0, this.coins - 50);
+      this.coins = newCoins;
+      this.registry.set("coins", newCoins);
+      this.coinsText.setText(`מטבעות: ${newCoins}`);
+      const el = document.getElementById("global-coins");
+      if (el) el.textContent = String(newCoins);
+    }
+
+    this.player.setTint(state === "win" ? 0x00ff00 : 0xff0000);
+    this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7);
+    this.add.text(this.scale.width / 2, this.scale.height / 2, message, { fontSize: "32px", fill: "#fff" }).setOrigin(0.5);
+    this.closeCurrentHole();
+    this.time.delayedCall(1200, () => {
+      this.add.text(this.scale.width / 2, this.scale.height / 2 + 60, "לחץ R כדי לאתחל את המשחק", { fontSize: "24px", fill: "#ffff00" }).setOrigin(0.5);
+    });
   }
 
   centerAndZoomCamera(viewW, viewH) {
@@ -237,10 +297,7 @@ export default class Level1 extends Phaser.Scene {
       this.currentHoleSprite.destroy();
       this.currentHoleSprite = null;
     }
-    this.currentHoleSprite = this.obstacles
-      .create(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "hole")
-      .setSize(TILE_SIZE, TILE_SIZE)
-      .refreshBody();
+    this.currentHoleSprite = this.obstacles.create(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "hole").setSize(TILE_SIZE, TILE_SIZE).refreshBody();
     this.currentHole = { x, y };
     this.easystar.setGrid(LEVEL_MAP);
   }
@@ -257,21 +314,10 @@ export default class Level1 extends Phaser.Scene {
     this.currentHole = null;
   }
 
-  inBounds(x, y) {
-    return y >= 0 && y < LEVEL_MAP.length && x >= 0 && x < LEVEL_MAP[y].length;
-  }
-
-  isWallTile(x, y) {
-    return this.inBounds(x, y) && LEVEL_MAP[y][x] === 1;
-  }
-
-  isFloorTile(x, y) {
-    return this.inBounds(x, y) && LEVEL_MAP[y][x] === 0;
-  }
-
-  getTileFromWorld(wx, wy) {
-    return { x: Math.floor(wx / TILE_SIZE), y: Math.floor(wy / TILE_SIZE) };
-  }
+  inBounds(x, y) { return y >= 0 && y < LEVEL_MAP.length && x >= 0 && x < LEVEL_MAP[y].length; }
+  isWallTile(x, y) { return this.inBounds(x, y) && LEVEL_MAP[y][x] === 1; }
+  isFloorTile(x, y) { return this.inBounds(x, y) && LEVEL_MAP[y][x] === 0; }
+  getTileFromWorld(wx, wy) { return { x: Math.floor(wx / TILE_SIZE), y: Math.floor(wy / TILE_SIZE) }; }
 
   collectKey(player, key) {
     if (key.getData("isBeingCollected")) return;
@@ -280,6 +326,42 @@ export default class Level1 extends Phaser.Scene {
     this.keysCollected++;
     this.keysText.setText(`מפתחות: ${this.keysCollected} / ${TOTAL_KEYS}`);
     if (this.keysCollected >= TOTAL_KEYS) this.unlockDoor();
+  }
+
+  collectCoin(player, coin) {
+    const tx = Math.floor(coin.x / TILE_SIZE);
+    const ty = Math.floor(coin.y / TILE_SIZE);
+    const tkey = `${tx},${ty}`;
+    coin.disableBody(true, true);
+    if (this.coinTiles.has(tkey)) this.coinTiles.delete(tkey);
+    const newCoins = this.coins + 10;
+    this.coins = newCoins;
+    this.registry.set("coins", newCoins);
+    this.coinsText.setText(`מטבעות: ${newCoins}`);
+    if (this.externalCoinsEl) this.externalCoinsEl.textContent = String(newCoins);
+  }
+
+  spawnCoin() {
+    const doorTile = this.getTileFromWorld(this.door.x, this.door.y);
+    let placed = false;
+    for (let i = 0; i < 40 && !placed; i++) {
+      const x = Phaser.Math.Between(1, LEVEL_MAP[0].length - 2);
+      const y = Phaser.Math.Between(1, LEVEL_MAP.length - 2);
+      if (!this.isFloorTile(x, y)) continue;
+      if (this.currentHole && this.currentHole.x === x && this.currentHole.y === y) continue;
+      if (doorTile.x === x && doorTile.y === y) continue;
+      let blockedByKey = false;
+      this.keys.getChildren().forEach((k) => {
+        const kt = this.getTileFromWorld(k.x, k.y);
+        if (kt.x === x && kt.y === y && k.active) blockedByKey = true;
+      });
+      if (blockedByKey) continue;
+      const tkey = `${x},${y}`;
+      if (this.coinTiles.has(tkey)) continue;
+      const sprite = this.coinsGroup.create(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "coin").setSize(TILE_SIZE, TILE_SIZE).refreshBody();
+      this.coinTiles.add(tkey);
+      placed = true;
+    }
   }
 
   unlockDoor() {
@@ -311,61 +393,20 @@ export default class Level1 extends Phaser.Scene {
     if (!this.gameIsRunning) return;
     this.gameIsRunning = false;
     this.physics.pause();
-
     const newCoins = this.coins + 70;
     this.coins = newCoins;
     this.registry.set("coins", newCoins);
-
     this.coinsText.setText(`מטבעות: ${newCoins}`);
     if (this.externalCoinsEl) this.externalCoinsEl.textContent = String(newCoins);
-
     const message = "שלב הושלם!";
     this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7);
     this.add.text(this.scale.width / 2, this.scale.height / 2, message, { fontSize: "32px", fill: "#00ff00" }).setOrigin(0.5);
-
     this.closeCurrentHole();
     this.externalTimerActive = false;
-
-    this.time.delayedCall(1000, () => {
-      this.scene.start("Level2");
-    });
+    this.time.delayedCall(1000, () => { this.scene.start("Level2"); });
   }
 
-  winByTime() {
-    this.endGame("win", "הזמן נגמר – הצלחת! 🎉");
-  }
-
-  handleHoleDeath() {
-    this.endGame("lose", "נפלת לחור! 😢");
-  }
-
-  handleGameOver() {
-    this.endGame("lose", "הייתה תקרית – המשטרה תפסה אותך! 😢");
-  }
-
-  endGame(state, message) {
-    if (!this.gameIsRunning) return;
-    this.gameIsRunning = false;
-    this.physics.pause();
-
-    if (state === 'lose') {
-      const newCoins = Math.max(0, this.coins - 50);
-      this.coins = newCoins;
-      this.registry.set("coins", newCoins);
-      this.coinsText.setText(`מטבעות: ${newCoins}`);
-      const el = document.getElementById("global-coins");
-      if (el) el.textContent = String(newCoins);
-    }
-
-    const tint = state === "win" ? 0x00ff00 : 0xff0000;
-    this.player.setTint(tint);
-    this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7);
-    this.add.text(this.scale.width / 2, this.scale.height / 2, message, { fontSize: "32px", fill: "#fff" }).setOrigin(0.5);
-    this.closeCurrentHole();
-    this.time.delayedCall(1200, () => {
-      this.add.text(this.scale.width / 2, this.scale.height / 2 + 60, "לחץ R כדי לאתחל את המשחק", { fontSize: "24px", fill: "#ffff00" }).setOrigin(0.5);
-    });
-  }
+  winByTime() { this.endGame("win", "הזמן נגמר – הצלחת! 🎉"); }
 
   formatTime(milliseconds) {
     if (milliseconds < 0) milliseconds = 0;

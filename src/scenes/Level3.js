@@ -1,9 +1,28 @@
-// src/scenes/Level2.js
-import { LEVEL_MAP, TILE_SIZE, TIME_LIMIT_MS, TOTAL_KEYS } from "../config.js";
+// src/scenes/Level3.js
+import { TILE_SIZE, TIME_LIMIT_MS, TOTAL_KEYS } from "../config.js";
 
-export default class Level2 extends Phaser.Scene {
+const LEVEL3_MAP = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+export default class Level3 extends Phaser.Scene {
   constructor() {
-    super({ key: "Level2" });
+    super({ key: "Level3" });
     this.gameIsRunning = false;
     this.keysCollected = 0;
     this.doorLocked = true;
@@ -18,11 +37,10 @@ export default class Level2 extends Phaser.Scene {
     this.externalTimerActive = false;
     this.externalCoinsEl = null;
     this.ballsGroup = null;
-    this.ballTiles = null;
-    this.ballsQueue = [];
-    this.ballInterval = 1200;
+    this.activeBalls = [];
+    this.ballInterval = 1100;
     this.nextBallTime = 0;
-    this.ballMax = 2;
+    this.ballMax = 4;
     this.coinsGroup = null;
     this.coinTiles = null;
     this.coinSpawnInterval = 5000;
@@ -35,16 +53,14 @@ export default class Level2 extends Phaser.Scene {
   create() {
     this.coins = this.registry.get("coins");
     this.playerLives = this.registry.get("lives") ?? 3;
-    this.level = 2;
+    this.level = 3;
 
-    this.keysCollected = 0;
-    this.doorLocked = true;
-
-    this.worldWidth = LEVEL_MAP[0].length * TILE_SIZE;
-    this.worldHeight = LEVEL_MAP.length * TILE_SIZE;
+    this.map = LEVEL3_MAP.map(r => r.slice());
+    this.worldWidth = this.map[0].length * TILE_SIZE;
+    this.worldHeight = this.map.length * TILE_SIZE;
 
     this.easystar = new EasyStar.js();
-    this.easystar.setGrid(LEVEL_MAP);
+    this.easystar.setGrid(this.map);
     this.easystar.setAcceptableTiles([0]);
     this.easystar.enableDiagonals();
 
@@ -59,12 +75,11 @@ export default class Level2 extends Phaser.Scene {
 
     this.borderWalls = this.physics.add.staticGroup();
     this.innerWalls = this.physics.add.staticGroup();
-
-    for (let y = 0; y < LEVEL_MAP.length; y++) {
+    for (let y = 0; y < this.map.length; y++) {
       this.wallSprites[y] = this.wallSprites[y] || [];
-      for (let x = 0; x < LEVEL_MAP[y].length; x++) {
-        if (LEVEL_MAP[y][x] === 1) {
-          const isBorder = y === 0 || y === LEVEL_MAP.length - 1 || x === 0 || x === LEVEL_MAP[y].length - 1;
+      for (let x = 0; x < this.map[y].length; x++) {
+        if (this.map[y][x] === 1) {
+          const isBorder = y === 0 || y === this.map.length - 1 || x === 0 || x === this.map[y].length - 1;
           const group = isBorder ? this.borderWalls : this.innerWalls;
           const s = group.create(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "wall").setSize(TILE_SIZE, TILE_SIZE).refreshBody();
           this.wallSprites[y][x] = s;
@@ -74,20 +89,22 @@ export default class Level2 extends Phaser.Scene {
       }
     }
 
-    this.ballsGroup = this.physics.add.staticGroup();
-    this.ballTiles = new Set();
-    this.ballsQueue = [];
+    this.ballsGroup = this.physics.add.group();
+    this.activeBalls = [];
 
     this.player = this.physics.add.sprite(400, 300, "player").setDisplaySize(40, 40).setCollideWorldBounds(true);
-    this.monster = this.physics.add.sprite(80, 80, "monster2").setDisplaySize(48, 48).setCollideWorldBounds(true);
-    this.monsterSpeed = 135;
+    this.monster = this.physics.add.sprite(80, 80, "monster_angry").setDisplaySize(48, 48).setCollideWorldBounds(true);
+    this.monsterSpeed = 140;
 
     this.door = this.physics.add.staticSprite(750, 80, "door").setDisplaySize(50, 70).setTint(0xff0000).refreshBody();
 
     this.physics.add.collider(this.player, this.borderWalls);
     this.physics.add.collider(this.monster, this.borderWalls);
     this.physics.add.collider(this.monster, this.innerWalls);
-    this.physics.add.collider(this.monster, this.ballsGroup);
+    this.physics.add.collider(this.ballsGroup, this.borderWalls);
+    this.physics.add.collider(this.ballsGroup, this.innerWalls);
+    this.physics.add.collider(this.ballsGroup, this.monster);
+    this.physics.add.collider(this.ballsGroup, this.ballsGroup);
     this.physics.add.collider(this.player, this.door, this.tryExit, null, this);
 
     this.keys = this.physics.add.staticGroup();
@@ -128,10 +145,11 @@ export default class Level2 extends Phaser.Scene {
     if (this.externalCoinsEl) this.externalCoinsEl.textContent = String(this.coins);
     this.externalTimerStart = this.time.now;
     this.externalTimerActive = true;
+    this.nextBallTime = this.time.now + this.ballInterval;
     this.nextCoinTime = this.time.now + this.coinSpawnInterval;
   }
 
-  update(time) {
+  update(time, delta) {
     if (!this.gameIsRunning) {
       if (Phaser.Input.Keyboard.JustDown(this.restartKey)) {
         this.registry.set("lives", 3);
@@ -155,15 +173,26 @@ export default class Level2 extends Phaser.Scene {
 
     if (time > this.nextBallTime) {
       this.nextBallTime = time + this.ballInterval;
-      this.spawnBallNearMonster();
+      this.spawnRollingBall();
     }
 
     if (time > this.nextCoinTime) {
       this.nextCoinTime = time + this.coinSpawnInterval;
       if (this.coinsGroup.countActive(true) < this.coinMax) this.spawnCoin();
     }
-  }
 
+    const dt = (delta || this.game.loop.delta) / 1000;
+    for (let i = 0; i < this.activeBalls.length; i++) {
+      const b = this.activeBalls[i];
+      if (!b || !b.active || !b.body) continue;
+      const speed = b.body.velocity.length();
+      const radiusPx = 20;
+      const angPerSecDeg = (speed / radiusPx) * Phaser.Math.RAD_TO_DEG;
+      const sign = b.body.velocity.x >= 0 ? 1 : -1;
+      b.setAngularVelocity(sign * angPerSecDeg);
+    }
+  }
+  
   renderHeartsDOM(lives) {
     if (!this.externalHeartsEl) return;
     let html = "";
@@ -191,12 +220,13 @@ export default class Level2 extends Phaser.Scene {
 
   handleBallDeath() { this.handlePlayerHit("נגעת בכדור! 😢"); }
   handleGameOver() { this.handlePlayerHit("המפלצת תפסה אותך! 😢"); }
-
+  
   endGame(state, message) {
     if (!this.gameIsRunning) return;
     this.gameIsRunning = false;
     this.physics.pause();
 
+    let finalLoss = false;
     if (state === 'lose') {
       const newCoins = Math.max(0, this.coins - 50);
       this.coins = newCoins;
@@ -204,15 +234,21 @@ export default class Level2 extends Phaser.Scene {
       this.coinsText.setText(`מטבעות: ${newCoins}`);
       const el = document.getElementById("global-coins");
       if (el) el.textContent = String(newCoins);
+      if (newCoins === 0) finalLoss = true;
     }
 
-    this.player.setTint(state === "win" ? 0x00ff00 : 0xff0000);
-    this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7);
-    this.add.text(this.scale.width / 2, this.scale.height / 2, message, { fontSize: "32px", fill: "#fff" }).setOrigin(0.5);
+    if (state === "win" && !finalLoss) {
+      this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7);
+      this.add.text(this.scale.width / 2, this.scale.height / 2, message, { fontSize: "32px", fill: "#fff" }).setOrigin(0.5);
+      return;
+    }
 
-    this.time.delayedCall(1200, () => {
-      this.add.text(this.scale.width / 2, this.scale.height / 2 + 60, "לחץ R כדי לאתחל את המשחק", { fontSize: "24px", fill: "#ffff00" }).setOrigin(0.5);
-    });
+    if (finalLoss) {
+      this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7);
+      this.add.text(this.scale.width / 2, this.scale.height / 2 - 10, "המשחק נגמר – הפסדת!", { fontSize: "36px", fill: "#ff4444" }).setOrigin(0.5);
+      this.add.text(this.scale.width / 2, this.scale.height / 2 + 34, "אזלו לך המטבעות", { fontSize: "24px", fill: "#ffffff" }).setOrigin(0.5);
+      this.externalTimerActive = false;
+    }
   }
 
   centerAndZoomCamera(viewW, viewH) {
@@ -272,39 +308,56 @@ export default class Level2 extends Phaser.Scene {
     this.easystar.calculate();
   }
 
-  spawnBallNearMonster() {
-    const m = this.getTileFromWorld(this.monster.x, this.monster.y);
-    const offsets = [];
-    for (let r = 1; r <= 2; r++) {
-      offsets.push({ x: r, y: 0 }, { x: -r, y: 0 }, { x: 0, y: r }, { x: 0, y: -r }, { x: r, y: r }, { x: -r, y: r }, { x: r, y: -r }, { x: -r, y: -r });
-    }
-    Phaser.Utils.Array.Shuffle(offsets);
-    for (const o of offsets) {
-      const x = m.x + o.x;
-      const y = m.y + o.y;
-      if (!this.inBounds(x, y) || !this.isFloorTile(x, y)) continue;
-      const key = `${x},${y}`;
-      if (this.ballTiles.has(key)) continue;
+  spawnRollingBall() {
+    const px = this.player.x;
+    const py = this.player.y;
+    const mx = this.monster.x;
+    const my = this.monster.y;
+    let dx = px - mx;
+    let dy = py - my;
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len;
+    dy /= len;
 
-      if (this.ballsQueue.length >= this.ballMax) {
-        const old = this.ballsQueue.shift();
-        if (old && old.sprite) old.sprite.destroy();
-        if (old) this.ballTiles.delete(old.key);
-      }
+    const jitter = 0.25;
+    dx += Phaser.Math.FloatBetween(-jitter, jitter);
+    dy += Phaser.Math.FloatBetween(-jitter, jitter);
+    const nlen = Math.hypot(dx, dy) || 1;
+    dx /= nlen;
+    dy /= nlen;
 
-      const sprite = this.ballsGroup.create(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "ball").setSize(TILE_SIZE, TILE_SIZE).refreshBody();
-      this.ballTiles.add(key);
-      this.ballsQueue.push({ x, y, sprite, key });
-      break;
+    const spawnX = mx + dx * 24;
+    const spawnY = my + dy * 24;
+
+    const ball = this.physics.add.sprite(spawnX, spawnY, "ball_spiky").setDisplaySize(40, 40);
+    ball.setCollideWorldBounds(true);
+    ball.setBounce(0.85);
+    ball.setDamping(true);
+    ball.setDrag(40, 40);
+    ball.body.setCircle(18, 2, 2);
+    ball.setVelocity(dx * 320, dy * 320);
+
+    this.ballsGroup.add(ball);
+    this.activeBalls.push(ball);
+    if (this.activeBalls.length > this.ballMax) {
+      const old = this.activeBalls.shift();
+      if (old && old.active) old.destroy();
     }
+
+    this.time.delayedCall(800, () => {
+      if (ball && ball.active) ball.setDrag(120, 120);
+    });
+    this.time.delayedCall(3200, () => {
+      if (ball && ball.active) ball.destroy();
+    });
   }
 
   spawnCoin() {
     const doorTile = this.getTileFromWorld(this.door.x, this.door.y);
     let placed = false;
     for (let i = 0; i < 40 && !placed; i++) {
-      const x = Phaser.Math.Between(1, LEVEL_MAP[0].length - 2);
-      const y = Phaser.Math.Between(1, LEVEL_MAP.length - 2);
+      const x = Phaser.Math.Between(1, this.map[0].length - 2);
+      const y = Phaser.Math.Between(1, this.map.length - 2);
       if (!this.isFloorTile(x, y)) continue;
       if (doorTile.x === x && doorTile.y === y) continue;
       let blockedByKey = false;
@@ -314,15 +367,13 @@ export default class Level2 extends Phaser.Scene {
       });
       if (blockedByKey) continue;
       const tkey = `${x},${y}`;
-      if (this.coinTiles.has(tkey) || this.ballTiles.has(tkey)) continue;
+      if (this.coinTiles.has(tkey)) continue;
       const sprite = this.coinsGroup.create(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "coin").setSize(TILE_SIZE, TILE_SIZE).refreshBody();
       this.coinTiles.add(tkey);
       placed = true;
     }
   }
 
-  inBounds(x, y) { return y >= 0 && y < LEVEL_MAP.length && x >= 0 && x < LEVEL_MAP[y].length; }
-  isFloorTile(x, y) { return this.inBounds(x, y) && LEVEL_MAP[y][x] === 0; }
   getTileFromWorld(wx, wy) { return { x: Math.floor(wx / TILE_SIZE), y: Math.floor(wy / TILE_SIZE) }; }
 
   collectKey(player, key) {
@@ -375,20 +426,31 @@ export default class Level2 extends Phaser.Scene {
     if (!this.gameIsRunning) return;
     this.gameIsRunning = false;
     this.physics.pause();
-    const newCoins = this.coins + 70;
+    const added = 70;
+    const newCoins = this.coins + added;
     this.coins = newCoins;
     this.registry.set("coins", newCoins);
     this.coinsText.setText(`מטבעות: ${newCoins}`);
     const el = document.getElementById("global-coins");
     if (el) el.textContent = String(newCoins);
-    const message = "שלב 2 הושלם!";
+
     this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7);
-    this.add.text(this.scale.width / 2, this.scale.height / 2, message, { fontSize: "32px", fill: "#00ff00" }).setOrigin(0.5);
+    this.add.text(this.scale.width / 2, this.scale.height / 2 - 10, "שלב 3 הושלם!", { fontSize: "40px", fill: "#00ff00" }).setOrigin(0.5);
+    this.add.text(this.scale.width / 2, this.scale.height / 2 + 34, "עוברים לשלב 4...", { fontSize: "26px", fill: "#ffffff" }).setOrigin(0.5);
     this.externalTimerActive = false;
-    this.time.delayedCall(1000, () => { this.scene.start("Level3"); });
+    this.time.delayedCall(1000, () => { this.scene.start("Level4"); });
   }
 
-  winByTime() { this.endGame("win", "הזמן נגמר – הצלחת! 🎉"); }
+  winByTime() {
+    if (!this.gameIsRunning) return;
+    this.gameIsRunning = false;
+    this.physics.pause();
+    this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7);
+    this.add.text(this.scale.width / 2, this.scale.height / 2 - 10, "הזמן נגמר – הצלחת!", { fontSize: "36px", fill: "#00ff00" }).setOrigin(0.5);
+    this.add.text(this.scale.width / 2, this.scale.height / 2 + 34, "עוברים לשלב 4...", { fontSize: "24px", fill: "#ffffff" }).setOrigin(0.5);
+    this.externalTimerActive = false;
+    this.time.delayedCall(1000, () => { this.scene.start("Level4"); });
+  }
 
   formatTime(milliseconds) {
     if (milliseconds < 0) milliseconds = 0;
@@ -398,4 +460,7 @@ export default class Level2 extends Phaser.Scene {
     const centi = Math.floor((milliseconds % 1000) / 10);
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}:${String(centi).padStart(2, "0")}`;
   }
+
+  inBounds(x, y) { return y >= 0 && y < this.map.length && x >= 0 && x < this.map[y].length; }
+  isFloorTile(x, y) { return this.inBounds(x, y) && this.map[y][x] === 0; }
 }
