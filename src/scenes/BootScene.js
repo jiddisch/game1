@@ -1,4 +1,3 @@
-// src/scenes/BootScene.js
 export default class BootScene extends Phaser.Scene {
   constructor() {
     super({ key: "BootScene" });
@@ -21,6 +20,8 @@ export default class BootScene extends Phaser.Scene {
     this.load.svg("gift", "src/assets/gift.svg", { width: 28, height: 28 });
     this.load.svg("heart", "src/assets/heart.svg", { width: 26, height: 26 });
     this.load.svg("heart-empty", "src/assets/heart-empty.svg", { width: 26, height: 26 });
+    this.load.svg("summoner", "src/assets/monster-summoner.svg", { width: 56, height: 56 });
+    this.load.svg("mini_monster", "src/assets/mini-monster.svg", { width: 28, height: 28 });
   }
 
   create() {

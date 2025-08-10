@@ -418,8 +418,12 @@ export default class Level5 extends Phaser.Scene {
     const el = document.getElementById("global-coins");
     if (el) el.textContent = String(newCoins);
     this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7);
-    this.add.text(this.scale.width / 2, this.scale.height / 2, "שלב 5 הושלם!", { fontSize: "32px", fill: "#00ff00" }).setOrigin(0.5);
+    this.add.text(this.scale.width / 2, this.scale.height / 2, "שלב 5 הושלם! ממשיכים לשלב 6...", { fontSize: "32px", fill: "#00ff00" }).setOrigin(0.5);
     this.externalTimerActive = false;
+    this.registry.set("level", 6);
+    this.time.delayedCall(1600, () => {
+      this.scene.start("Level6");
+    });
   }
 
   endGame(state, message) {
