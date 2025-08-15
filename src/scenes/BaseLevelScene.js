@@ -22,6 +22,10 @@ export default class BaseLevelScene extends Phaser.Scene {
     this.restartKey = null;
     this.pauseKey = null;
     this.externalTimerStart = 0;
+    this.medicines = null;
+    this.nextMedicineSpawnAt = 0;
+    this.lockedDoorMessage = null;
+    this.groundLayer = null;
   }
 
   create() {
@@ -39,10 +43,13 @@ export default class BaseLevelScene extends Phaser.Scene {
     this.createPlayer();
     this.createDoor();
     this.createKeys();
+    this.createMedicines();
     this.setupColliders();
     this.setupCamera();
 
     this.createLevel();
+
+    this.scheduleNextMedicineSpawn();
 
     this.gameIsRunning = true;
   }
@@ -63,6 +70,7 @@ export default class BaseLevelScene extends Phaser.Scene {
     this.handlePlayerMovement();
     this.updateHUD(time);
     this.updateLevel(time, delta);
+    this.updateMedicine(time);
   }
 
   initInput() {
@@ -93,6 +101,15 @@ export default class BaseLevelScene extends Phaser.Scene {
   }
 
   createMap() {
+    this.groundLayer = this.add.layer();
+    for (let y = 0; y < this.map.length; y++) {
+      for (let x = 0; x < this.map[y].length; x++) {
+        const img = this.add.image(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "ground").setDisplaySize(TILE_SIZE, TILE_SIZE);
+        img.setDepth(-10);
+        this.groundLayer.add(img);
+      }
+    }
+
     this.borderWalls = this.physics.add.staticGroup();
     this.innerWalls = this.physics.add.staticGroup();
     for (let y = 0; y < this.map.length; y++) {
@@ -123,10 +140,15 @@ export default class BaseLevelScene extends Phaser.Scene {
     });
   }
 
+  createMedicines() {
+    this.medicines = this.physics.add.staticGroup();
+  }
+
   setupColliders() {
     this.physics.add.collider(this.player, this.borderWalls);
     this.physics.add.collider(this.player, this.door, this.tryExit, null, this);
     this.physics.add.overlap(this.player, this.keys, this.collectKey, null, this);
+    this.physics.add.overlap(this.player, this.medicines, this.tryCollectMedicine, null, this);
   }
 
   setupCamera() {
@@ -176,6 +198,16 @@ export default class BaseLevelScene extends Phaser.Scene {
     this.keysCollected++;
     this.events.emit("update-hud", { keys: `${this.keysCollected} / ${TOTAL_KEYS}` });
     if (this.keysCollected >= TOTAL_KEYS) this.unlockDoor();
+  }
+
+  tryCollectMedicine(player, med) {
+    if (this.playerLives >= 3) return;
+    med.disableBody(true, true);
+    this.playerLives++;
+    this.registry.set("lives", this.playerLives);
+    this.events.emit("update-hud", { lives: this.playerLives });
+    this.tweens.add({ targets: this.player, scale: 1.12, duration: 120, yoyo: true, onComplete: () => { this.player.setScale(1) } });
+    this.scheduleNextMedicineSpawn();
   }
 
   unlockDoor() {
@@ -293,5 +325,35 @@ export default class BaseLevelScene extends Phaser.Scene {
         img.src = idx < lives ? "src/assets/heart.svg" : "src/assets/heart-empty.svg";
       });
     }
+  }
+
+  scheduleNextMedicineSpawn() {
+    const options = [10000, 20000, 30000];
+    const idx = Math.floor(Math.random() * options.length);
+    this.nextMedicineSpawnAt = this.time.now + options[idx];
+  }
+
+  updateMedicine(time) {
+    if (time < this.nextMedicineSpawnAt) return;
+    if (!this.medicines) return;
+    const activeCount = this.medicines.countActive(true);
+    if (activeCount > 0) return;
+    this.spawnMedicine();
+  }
+
+  spawnMedicine() {
+    const maxAttempts = 50;
+    let placed = false;
+    for (let i = 0; i < maxAttempts && !placed; i++) {
+      const tx = Math.floor(Math.random() * this.map[0].length);
+      const ty = Math.floor(Math.random() * this.map.length);
+      if (!this.isFloorTile(tx, ty)) continue;
+      const wx = tx * TILE_SIZE + TILE_SIZE / 2;
+      const wy = ty * TILE_SIZE + TILE_SIZE / 2;
+      const med = this.medicines.create(wx, wy, "medicine").setDisplaySize(26, 26).refreshBody();
+      med.setData("spawnTile", { x: tx, y: ty });
+      placed = true;
+    }
+    this.scheduleNextMedicineSpawn();
   }
 }

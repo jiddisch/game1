@@ -12,7 +12,7 @@ const LEVEL5_MAP = [
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -157,14 +157,7 @@ export default class Level5 extends BaseLevelScene {
     const len = Math.hypot(dx, dy) || 1;
     dx /= len;
     dy /= len;
-    const spread = 0.28;
-    for (let i = 0; i < count; i++) {
-      const off = spread * ((i / (count - 1)) - 0.5);
-      const ca = Math.cos(off), sa = Math.sin(off);
-      const sx = dx * ca - dy * sa;
-      const sy = dx * sa + dy * ca;
-      this.spawnBullet(this.boss.x, this.boss.y, sx, sy, speed);
-    }
+    this.spawnBullet(this.boss.x, this.boss.y, dx, dy, speed);
   }
 
   spawnBullet(x, y, dx, dy, speed) {
@@ -172,6 +165,7 @@ export default class Level5 extends BaseLevelScene {
     const spawnY = y + dy * 30;
     const b = this.bullets.create(spawnX, spawnY, "bullet").setDisplaySize(16, 16);
     b.body.setAllowGravity(false);
+    b.body.setSize(16, 16, true);
     b.setVelocity(dx * speed, dy * speed);
     b.setAngle(Phaser.Math.RadToDeg(Math.atan2(dy, dx)));
     this.time.delayedCall(2600, () => {

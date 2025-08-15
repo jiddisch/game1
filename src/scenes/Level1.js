@@ -14,7 +14,7 @@ export default class Level1 extends BaseLevelScene {
     this.holeInterval = 3000;
     this.currentHole = null;
     this.currentHoleSprite = null;
-    this.coinSpawnInterval = 5000;
+    this.coinSpawnInterval = 10000;
     this.nextCoinTime = 0;
     this.coinMax = 3;
     this.coinTiles = new Set();

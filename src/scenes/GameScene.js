@@ -20,6 +20,7 @@ export default class GameScene extends Phaser.Scene {
     this.externalTimerStart = 0;
     this.externalTimerActive = false;
     this.externalCoinsEl = null;
+    this.groundLayer = null;
   }
 
   preload() {}
@@ -47,6 +48,15 @@ export default class GameScene extends Phaser.Scene {
     this.timerText = this.add.text(width / 2, 10, "", { fontSize: "28px", fill: "#fff" }).setOrigin(0.5, 0).setScrollFactor(0);
     this.keysText = this.add.text(12, 10, `מפתחות: 0 / ${TOTAL_KEYS}`, { fontSize: "24px", fill: "#ffff00" }).setScrollFactor(0);
     this.coinsText = this.add.text(width - 12, 10, `מטבעות: ${this.coins}`, { fontSize: "24px", fill: "#ffc900" }).setOrigin(1, 0).setScrollFactor(0);
+
+    this.groundLayer = this.add.layer();
+    for (let y = 0; y < LEVEL_MAP.length; y++) {
+      for (let x = 0; x < LEVEL_MAP[y].length; x++) {
+        const img = this.add.image(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, "ground").setDisplaySize(TILE_SIZE, TILE_SIZE);
+        img.setDepth(-10);
+        this.groundLayer.add(img);
+      }
+    }
 
     this.borderWalls = this.physics.add.staticGroup();
     this.innerWalls = this.physics.add.staticGroup();

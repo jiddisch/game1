@@ -1,21 +1,20 @@
-// src/scenes/Level8.js
 import { TILE_SIZE, TOTAL_KEYS } from '../config.js';
 import BaseLevelScene from './BaseLevelScene.js';
 
 const LEVEL8_MAP = [
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1],
-  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
   [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
   [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-  [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+  [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
@@ -36,7 +35,7 @@ export default class Level8 extends BaseLevelScene {
     this.easystar = null;
     this.nextPathTime = 0;
     this.pathInterval = 80;
-    this.monsterSpeed = 150;
+    this.monsterSpeed = 80;
 
     this.bullets = null;
     this.magazines = null;
@@ -51,7 +50,12 @@ export default class Level8 extends BaseLevelScene {
   }
 
   createLevel() {
+    this.monsterHealth = 3;
+    this.monsterDead = false;
+
     this.monster = this.physics.add.sprite(80, 80, 'monster4').setDisplaySize(52, 52).setCollideWorldBounds(true);
+    this.monster.setData('health', 3);
+    this.monster.setData('isMonster', true);
     this.physics.add.collider(this.monster, this.borderWalls);
     this.physics.add.collider(this.monster, this.innerWalls);
     this.physics.add.overlap(this.player, this.monster, () => this.handlePlayerHit('המפלצת תפסה אותך! 😢'));
@@ -68,7 +72,7 @@ export default class Level8 extends BaseLevelScene {
 
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-    this.ammoText = this.add.text(12, 48, 'כדורים: 0', { fontSize: '20px', fill: '#ffffff' }).setScrollFactor(0);
+    this.ammoText = this.add.text(this.scale.width - 12, 48, 'כדורים: 0', { fontSize: '20px', fill: '#ffffff' }).setOrigin(1, 0).setScrollFactor(0).setDepth(1000);
 
     this.easystar = new EasyStar.js();
     this.easystar.setGrid(this.map);
@@ -77,6 +81,10 @@ export default class Level8 extends BaseLevelScene {
 
     this.nextMagazineAt = this.time.now + this.magazineInterval;
     this.spawnMagazine();
+
+    this.scale.on('resize', (gameSize) => {
+      if (this.ammoText) this.ammoText.setPosition(gameSize.width - 12, 48);
+    });
   }
 
   updateLevel(time) {
@@ -120,6 +128,7 @@ export default class Level8 extends BaseLevelScene {
     }
 
     const bullet = this.bullets.create(this.player.x, this.player.y, 'bullet').setDisplaySize(16, 16);
+    bullet.setData('isBullet', true);
     const speed = 520;
     if (bullet && bullet.body) bullet.setVelocity(dx * speed, dy * speed);
 
@@ -135,22 +144,39 @@ export default class Level8 extends BaseLevelScene {
     if (bullet && bullet.active) bullet.destroy();
   }
 
-  onBulletHitMonster(bullet) {
-    if (bullet && bullet.active) bullet.destroy();
-    if (this.monsterDead || !this.monster) return;
+  onBulletHitMonster(obj1, obj2) {
+    const is1Bullet = obj1 && obj1.getData && obj1.getData('isBullet');
+    const is2Bullet = obj2 && obj2.getData && obj2.getData('isBullet');
+    const is1Monster = obj1 && obj1.getData && obj1.getData('isMonster');
+    const is2Monster = obj2 && obj2.getData && obj2.getData('isMonster');
 
-    this.monsterHealth--;
-    if (this.monster && this.monster.active) {
-      this.monster.setTintFill(0xff8888);
+    const bullet = is1Bullet ? obj1 : is2Bullet ? obj2 : null;
+    const monster = is1Monster ? obj1 : is2Monster ? obj2 : null;
+
+    if (!bullet || !monster) return;
+    if (!bullet.active || bullet.getData('hitProcessed')) return;
+
+    bullet.setData('hitProcessed', true);
+    bullet.destroy();
+    if (this.monsterDead || !monster) return;
+
+    let hp = Number(monster.getData('health'));
+    if (!Number.isFinite(hp)) hp = 3;
+    hp = Math.max(0, hp - 1);
+    monster.setData('health', hp);
+    this.monsterHealth = hp;
+
+    if (monster.active) {
+      monster.setTintFill(0xff8888);
       this.time.delayedCall(80, () => {
-        if (this.monster && this.monster.active) this.monster.clearTint();
+        if (monster && monster.active) monster.clearTint();
       });
     }
 
-    if (this.monsterHealth <= 0 && this.monster) {
+    if (hp <= 0) {
       this.monsterDead = true;
-      if (this.monster.body) this.monster.setVelocity(0, 0);
-      this.monster.disableBody(true, true);
+      if (monster.body) monster.setVelocity(0, 0);
+      monster.disableBody(true, true);
       this.tryUnlockDoorIfReady();
     }
   }
@@ -168,7 +194,7 @@ export default class Level8 extends BaseLevelScene {
   spawnMagazine() {
     const pos = this.getRandomFloorTile();
     if (!pos) return;
-    this.magazines.create(pos.x * TILE_SIZE + TILE_SIZE / 2, pos.y * TILE_SIZE + TILE_SIZE / 2, 'gift').setDisplaySize(28, 28).refreshBody();
+    this.magazines.create(pos.x * TILE_SIZE + TILE_SIZE / 2, pos.y * TILE_SIZE + TILE_SIZE / 2, 'ammo').setDisplaySize(28, 28).refreshBody();
   }
 
   getRandomFloorTile() {
@@ -222,7 +248,8 @@ export default class Level8 extends BaseLevelScene {
   }
 
   tryExit() {
-    if (this.doorLocked || this.keysCollected < TOTAL_KEYS || !this.monsterDead) {
+    this.unlockDoor();
+    if (this.keysCollected < TOTAL_KEYS || !this.monsterDead || this.doorLocked) {
       this.showLockedDoorMessage();
       return;
     }
@@ -231,9 +258,12 @@ export default class Level8 extends BaseLevelScene {
 
   showLockedDoorMessage() {
     if (this.lockedDoorMessage && this.lockedDoorMessage.active) return;
-    const msg = this.keysCollected < TOTAL_KEYS
-      ? 'הדלת נעולה! מצא את כל המפתחות.'
-      : 'הדלת נעולה! הרוג את המפלצת כדי לפתוח.';
+    const needKeys = this.keysCollected < TOTAL_KEYS;
+    const needMonster = !this.monsterDead;
+    let msg = 'הדלת נעולה!';
+    if (needKeys && needMonster) msg = 'הדלת נעולה! מצא את כל המפתחות והרוג את המפלצת.';
+    else if (needKeys) msg = 'הדלת נעולה! מצא את כל המפתחות.';
+    else if (needMonster) msg = 'הדלת נעולה! הרוג את המפלצת כדי לפתוח.';
     this.lockedDoorMessage = this.add.text(this.door.x, this.door.y - 50, msg, { fontSize: '16px', fill: '#ff4444', backgroundColor: '#000a' }).setOrigin(0.5);
     this.time.delayedCall(2000, () => { if (this.lockedDoorMessage) this.lockedDoorMessage.destroy() });
   }

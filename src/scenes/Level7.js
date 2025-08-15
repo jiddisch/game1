@@ -1,4 +1,3 @@
-// src/scenes/Level7.js
 import { TILE_SIZE } from '../config.js';
 import BaseLevelScene from './BaseLevelScene.js';
 

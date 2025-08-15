@@ -37,7 +37,7 @@ export default class Level4 extends BaseLevelScene {
     this.alertUntil = 0;
     this.bulletInterval = 900;
     this.nextBulletTime = 0;
-    this.coinSpawnInterval = 5000;
+    this.coinSpawnInterval = 10000;
     this.nextCoinTime = 0;
     this.coinMax = 4;
     this.giftSpawnInterval = 20000;

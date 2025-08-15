@@ -1,7 +1,6 @@
 import { TILE_SIZE } from '../config.js';
 import BaseLevelScene from './BaseLevelScene.js';
 
-// Level 3 specific map
 const LEVEL3_MAP = [
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -33,7 +32,7 @@ export default class Level3 extends BaseLevelScene {
     this.ballInterval = 1100;
     this.nextBallTime = 0;
     this.ballMax = 4;
-    this.coinSpawnInterval = 5000;
+    this.coinSpawnInterval = 10000;
     this.nextCoinTime = 0;
     this.coinMax = 5;
 

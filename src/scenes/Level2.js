@@ -13,7 +13,7 @@ export default class Level2 extends BaseLevelScene {
     this.ballInterval = 1200;
     this.nextBallTime = 0;
     this.ballMax = 2;
-    this.coinSpawnInterval = 5000;
+    this.coinSpawnInterval = 10000;
     this.nextCoinTime = 0;
     this.coinMax = 5;
 
