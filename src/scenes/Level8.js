@@ -1,3 +1,4 @@
+// src/scenes/Level8.js
 import { TILE_SIZE, TOTAL_KEYS } from '../config.js';
 import BaseLevelScene from './BaseLevelScene.js';
 
@@ -25,7 +26,7 @@ export default class Level8 extends BaseLevelScene {
     super('Level8', {
       map: LEVEL8_MAP,
       level: 8,
-      nextLevelKey: null
+      nextLevelKey: 'Level9'
     });
 
     this.monster = null;
@@ -44,6 +45,7 @@ export default class Level8 extends BaseLevelScene {
     this.spaceKey = null;
     this.lastDirX = 1;
     this.lastDirY = 0;
+    this.aimIndicator = null;
 
     this.nextMagazineAt = 0;
     this.magazineInterval = 20000;
@@ -73,6 +75,7 @@ export default class Level8 extends BaseLevelScene {
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     this.ammoText = this.add.text(this.scale.width - 12, 48, 'כדורים: 0', { fontSize: '20px', fill: '#ffffff' }).setOrigin(1, 0).setScrollFactor(0).setDepth(1000);
+    this.aimIndicator = this.add.image(this.player.x, this.player.y, 'bullet').setDisplaySize(14, 14).setAlpha(0.6).setDepth(900);
 
     this.easystar = new EasyStar.js();
     this.easystar.setGrid(this.map);
@@ -96,6 +99,15 @@ export default class Level8 extends BaseLevelScene {
       const len = Math.hypot(vx, vy) || 1;
       this.lastDirX = vx / len;
       this.lastDirY = vy / len;
+    }
+
+    if (this.aimIndicator) {
+      const dx = this.lastDirX || 1;
+      const dy = this.lastDirY || 0;
+      const ang = Phaser.Math.RadToDeg(Math.atan2(dy, dx));
+      this.aimIndicator.setAngle(ang);
+      const offset = 26;
+      this.aimIndicator.setPosition(this.player.x + dx * offset, this.player.y + dy * offset);
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
