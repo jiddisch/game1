@@ -229,20 +229,37 @@ export default class BaseLevelScene extends Phaser.Scene {
     if (!this.gameIsRunning) return;
     this.gameIsRunning = false;
     this.physics.pause();
+
     const reward = 70 + (this.levelConfig.level - 1) * 10;
     const newCoins = this.coins + reward;
     this.registry.set("coins", newCoins);
     this.events.emit("update-hud", { coins: newCoins });
 
-    this.add.rectangle(this.cameras.main.centerX, this.cameras.main.centerY, this.cameras.main.width, this.cameras.main.height, 0x000000, 0.7).setScrollFactor(0);
+    this.add
+      .rectangle(
+        this.cameras.main.centerX,
+        this.cameras.main.centerY,
+        this.cameras.main.width,
+        this.cameras.main.height,
+        0x000000,
+        0.7
+      )
+      .setScrollFactor(0);
+
     const winText = `שלב ${this.levelConfig.level} הושלם!`;
-    this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, winText, { fontSize: "32px", fill: "#00ff00" }).setOrigin(0.5).setScrollFactor(0);
+    this.add
+      .text(
+        this.cameras.main.centerX,
+        this.cameras.main.centerY,
+        winText,
+        { fontSize: "32px", fill: "#00ff00" }
+      )
+      .setOrigin(0.5)
+      .setScrollFactor(0);
 
     if (this.levelConfig.nextLevelKey) {
       this.registry.set("level", this.levelConfig.level + 1);
-      this.time.delayedCall(2000, () => {
-        this.scene.start(this.levelConfig.nextLevelKey);
-      });
+      this.scene.start(this.levelConfig.nextLevelKey);
     }
   }
 

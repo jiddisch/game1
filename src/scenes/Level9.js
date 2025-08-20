@@ -1,4 +1,3 @@
-// src/scenes/Level9.js
 import { TILE_SIZE, TOTAL_KEYS } from '../config.js';
 import BaseLevelScene from './BaseLevelScene.js';
 
@@ -26,7 +25,7 @@ export default class Level9 extends BaseLevelScene {
     super('Level9', {
       map: LEVEL9_MAP,
       level: 9,
-      nextLevelKey: null
+      nextLevelKey: 'Level10'
     });
 
     this.boss = null;
@@ -217,6 +216,7 @@ export default class Level9 extends BaseLevelScene {
     if (hp <= 0) {
       if (boss.body) boss.setVelocity(0, 0);
       boss.disableBody(true, true);
+      this.bossDead = true;
       this.tryUnlockDoorIfReady();
     }
   }
@@ -299,8 +299,8 @@ export default class Level9 extends BaseLevelScene {
   }
 
   spawnBossBullet(x, y, dx, dy, speed) {
-    const spawnX = x + dx * 30;
-    const spawnY = y + dy * 30;
+    const spawnX = x + dx * 40;
+    const spawnY = y + dy * 40;
     const b = this.bossBullets.create(spawnX, spawnY, "bullet").setDisplaySize(16, 16);
     b.body.setAllowGravity(false);
     b.body.setSize(16, 16, true);
@@ -338,38 +338,14 @@ export default class Level9 extends BaseLevelScene {
     return floors[Math.floor(Math.random() * floors.length)];
   }
 
-  updateGhostPath() {
-    if (!this.ghostEnemy || !this.ghostEnemy.body) return;
-    const from = this.getTileFromWorld(this.ghostEnemy.x, this.ghostEnemy.y);
-    const to = this.getTileFromWorld(this.player.x, this.player.y);
-    if (from.x === to.x && from.y === to.y) {
-      this.ghostEnemy.setData('targetTile', null);
-      return;
-    }
-    this.easystar.findPath(from.x, from.y, to.x, to.y, (path) => {
-      if (!this.ghostEnemy) return;
-      this.ghostEnemy.setData('targetTile', path && path.length > 1 ? path[1] : null);
-    });
-    this.easystar.calculate();
-  }
+  updateGhostPath() {}
 
-  moveGhost() {
-    if (!this.ghostEnemy || !this.ghostEnemy.body) return;
-    const target = this.ghostEnemy.getData('targetTile');
-    if (!target) {
-      this.ghostEnemy.setVelocity(0, 0);
-      return;
-    }
-    const tx = target.x * TILE_SIZE + TILE_SIZE / 2;
-    const ty = target.y * TILE_SIZE + TILE_SIZE / 2;
-    this.physics.moveTo(this.ghostEnemy, tx, ty, this.ghostSpeed);
-  }
+  moveGhost() {}
 
   unlockDoor() {
     if (!this.doorLocked && this.door) return;
     const bossDead = !this.boss || !this.boss.active;
-    const ghostDead = !this.ghostEnemy || !this.ghostEnemy.active;
-    if (this.keysCollected >= TOTAL_KEYS && bossDead && ghostDead) {
+    if (this.keysCollected >= TOTAL_KEYS && bossDead) {
       this.doorLocked = false;
       if (this.door) this.door.setTint(0x00ff00);
     }
@@ -382,8 +358,7 @@ export default class Level9 extends BaseLevelScene {
   tryExit() {
     this.unlockDoor();
     const bossDead = !this.boss || !this.boss.active;
-    const ghostDead = !this.ghostEnemy || !this.ghostEnemy.active;
-    if (this.keysCollected < TOTAL_KEYS || !bossDead || !ghostDead || this.doorLocked) {
+    if (this.keysCollected < TOTAL_KEYS || !bossDead || this.doorLocked) {
       this.showLockedDoorMessage();
       return;
     }
@@ -394,13 +369,10 @@ export default class Level9 extends BaseLevelScene {
     if (this.lockedDoorMessage && this.lockedDoorMessage.active) return;
     const needKeys = this.keysCollected < TOTAL_KEYS;
     const bossDead = !this.boss || !this.boss.active;
-    const ghostDead = !this.ghostEnemy || !this.ghostEnemy.active;
     const needBoss = !bossDead;
-    const needGhost = !ghostDead;
     let parts = [];
     if (needKeys) parts.push('מצא את כל המפתחות');
-    if (needBoss) parts.push('הרוג את המפלצת היורה');
-    if (needGhost) parts.push('הרוג את רוח הרפאים');
+    if (needBoss) parts.push('הרוג את הבוס הענק');
     const msg = parts.length ? `הדלת נעולה! ${parts.join(' וגם ')}.` : 'הדלת נעולה!';
     this.lockedDoorMessage = this.add.text(this.door.x, this.door.y - 50, msg, { fontSize: '16px', fill: '#ff4444', backgroundColor: '#000a' }).setOrigin(0.5);
     this.time.delayedCall(2000, () => { if (this.lockedDoorMessage) this.lockedDoorMessage.destroy() });

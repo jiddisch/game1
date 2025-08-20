@@ -1,6 +1,6 @@
-// src/main.js
 import BootScene from './scenes/BootScene.js';
 import Level1 from './scenes/Level1.js';
+import Level10 from './scenes/Level10.js';
 import Level2 from './scenes/Level2.js';
 import Level3 from './scenes/Level3.js';
 import Level4 from './scenes/Level4.js';
@@ -19,7 +19,7 @@ const config = {
     arcade: { gravity: { y: 0 }, debug: false }
   },
   scale: { mode: Phaser.Scale.RESIZE },
-  scene: [BootScene, Level1, Level2, Level3, Level4, Level5, Level6, Level7, Level8, Level9]
+  scene: [BootScene, Level1, Level2, Level3, Level4, Level5, Level6, Level7, Level8, Level9, Level10]
 };
 
 const game = new Phaser.Game(config);
